@@ -661,6 +661,11 @@ def monitor(exit_event, wait):
     MSR_PP1_ENERGY_STATUS = 0x641
     MSR_DRAM_ENERGY_STATUS = 0x619
 
+    try:
+        mchbar_mmio = MMIO(0xFED159A0, 8)
+    except MMIOError:
+        fatal('Unable to open /dev/mem. Try to disable Secure Boot.')
+
     wait = max(0.1, wait)
     rapl_power_unit = 0.5 ** readmsr(MSR_RAPL_POWER_UNIT, from_bit=8, to_bit=12, cpu=0)
     power_plane_msr = {
@@ -701,6 +706,14 @@ def monitor(exit_event, wait):
             stats2[power_plane] = '{:.1f} W'.format(energy_w)
         output2 = ('{:s}: {:s}'.format(label, stats2[label]) for label in stats2)
         print('[{}] {}  ||  {}{}'.format(power['source'], ' - '.join(output), ' - '.join(output2), ' ' * 10), end='\r')
+
+        # MCHBAR readback
+        mchbar_low = mchbar_mmio.read32(0)
+        mchbar_high = mchbar_mmio.read32(0)
+        mchbar_64 = mchbar_mmio.read32(0) | (mchbar_mmio.read32(4) << 32)
+        print('\n')
+        print('MCHBAR+59A0h: {0:X}, bin: {0:b}'.format(mchbar_64))
+
         exit_event.wait(wait)
 
 
